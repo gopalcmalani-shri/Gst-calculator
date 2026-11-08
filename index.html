@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- ========== 1. HEAD: page settings (not visible on screen) ========== -->
+  <meta charset="UTF-8">
+  <!-- Makes the page scale properly on phones -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GST Calculator</title>
+
+  <!-- ========== 2. CSS: how things look ========== -->
+  <style>
+    /* Colour "variables" so we can change the theme in one place */
+    :root {
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --text: #1d2433;
+      --muted: #667085;
+      --border: #d7dce5;
+      --accent: #2952cc;
+      --accent-soft: #e8eefc;
+    }
+    /* Dark mode: used automatically if the phone/computer is in dark mode */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #11151c;
+        --card: #1b212b;
+        --text: #e8ebf0;
+        --muted: #9aa3b2;
+        --border: #313a48;
+        --accent: #7c9cff;
+        --accent-soft: #232d45;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.4;
+    }
+
+    .card {
+      max-width: 480px;          /* never wider than this on big screens */
+      margin: 24px auto;         /* centred horizontally */
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+    }
+
+    h1 { font-size: 1.4rem; margin: 0 0 4px; }
+    .subtitle { color: var(--muted); margin: 0 0 20px; font-size: 0.9rem; }
+
+    label, .group-label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+    }
+    .field { margin-bottom: 18px; }
+
+    input[type="number"] {
+      width: 100%;
+      font-size: 1.2rem;        /* 16px+ stops iPhones from zooming in */
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--text);
+    }
+    input[type="number"]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+    /* "Segmented" buttons: radio buttons styled to look like a button row */
+    .segmented {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .segmented input { position: absolute; opacity: 0; pointer-events: none; }
+    .segmented label {
+      flex: 1;
+      min-width: 0;
+      margin: 0;
+      text-align: center;
+      padding: 12px 6px;        /* big enough to tap with a thumb */
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 500;
+      user-select: none;
+    }
+    .segmented input:checked + label {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .segmented input:focus-visible + label { outline: 2px solid var(--accent); }
+
+    /* Results box */
+    .results {
+      margin-top: 8px;
+      border-top: 1px dashed var(--border);
+      padding-top: 16px;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-variant-numeric: tabular-nums;  /* digits line up neatly */
+    }
+    .row span:first-child { color: var(--muted); }
+    .row.total {
+      border-top: 1px solid var(--border);
+      margin-top: 6px;
+      padding-top: 12px;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+    .row.total span:first-child { color: var(--text); }
+    .hidden { display: none; }
+  </style>
+</head>
+
+<body>
+  <!-- ========== 3. HTML: what is on the page ========== -->
+  <main class="card">
+    <h1>GST Calculator</h1>
+    <p class="subtitle">Results update as you type.</p>
+
+    <!-- Input 1: Amount -->
+    <div class="field">
+      <label for="amount">Amount (₹)</label>
+      <input type="number" id="amount" inputmode="decimal" min="0" step="0.01" placeholder="e.g. 1000" value="1000">
+    </div>
+
+    <!-- Input 2: GST rate -->
+    <div class="field">
+      <span class="group-label">GST rate</span>
+      <div class="segmented">
+        <input type="radio" name="rate" id="r5"  value="5">       <label for="r5">5%</label>
+        <input type="radio" name="rate" id="r12" value="12">      <label for="r12">12%</label>
+        <input type="radio" name="rate" id="r18" value="18" checked> <label for="r18">18%</label>
+        <input type="radio" name="rate" id="r28" value="28">      <label for="r28">28%</label>
+      </div>
+    </div>
+
+    <!-- Input 3: Does the amount already include GST? -->
+    <div class="field">
+      <span class="group-label">Amount entered is</span>
+      <div class="segmented">
+        <input type="radio" name="mode" id="exclusive" value="exclusive" checked> <label for="exclusive">Excl. GST</label>
+        <input type="radio" name="mode" id="inclusive" value="inclusive">         <label for="inclusive">Incl. GST</label>
+      </div>
+    </div>
+
+    <!-- Input 4: Where is the supply? -->
+    <div class="field">
+      <span class="group-label">Supply type</span>
+      <div class="segmented">
+        <input type="radio" name="supply" id="intra" value="intra" checked> <label for="intra">Intra-state</label>
+        <input type="radio" name="supply" id="inter" value="inter">         <label for="inter">Inter-state</label>
+      </div>
+    </div>
+
+    <!-- Outputs -->
+    <section class="results" aria-live="polite">
+      <div class="row"><span>Taxable value</span><span id="taxable">₹0.00</span></div>
+
+      <!-- Shown only for intra-state -->
+      <div id="intraRows">
+        <div class="row"><span id="cgstLabel">CGST</span><span id="cgst">₹0.00</span></div>
+        <div class="row"><span id="sgstLabel">SGST</span><span id="sgst">₹0.00</span></div>
+      </div>
+
+      <!-- Shown only for inter-state -->
+      <div id="interRows" class="hidden">
+        <div class="row"><span id="igstLabel">IGST</span><span id="igst">₹0.00</span></div>
+      </div>
+
+      <div class="row total"><span>Total</span><span id="total">₹0.00</span></div>
+    </section>
+  </main>
+
+  <!-- ========== 4. JAVASCRIPT: the calculation logic ========== -->
+  <script>
+    // Formats a number as Indian Rupees, e.g. 123456.7 -> "₹1,23,456.70"
+    const rupees = new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    // Rounds to 2 decimal places (paise)
+    function round2(n) {
+      return Math.round((n + Number.EPSILON) * 100) / 100;
+    }
+
+    // Shortcut to find an element by its id
+    const $ = (id) => document.getElementById(id);
+
+    // Reads which radio button in a group is selected
+    function selected(name) {
+      return document.querySelector(`input[name="${name}"]:checked`).value;
+    }
+
+    function calculate() {
+      // --- Step 1: read the inputs ---
+      const amount = parseFloat($("amount").value) || 0;   // empty box -> 0
+      const rate   = Number(selected("rate"));              // 5, 12, 18 or 28
+      const mode   = selected("mode");                      // "exclusive" | "inclusive"
+      const supply = selected("supply");                    // "intra" | "inter"
+
+      // --- Step 2: work out taxable value and GST ---
+      let taxable, gst;
+      if (mode === "exclusive") {
+        // Amount is BEFORE tax: add GST on top
+        taxable = amount;
+        gst = amount * rate / 100;
+      } else {
+        // Amount ALREADY includes GST: pull the GST out
+        taxable = amount * 100 / (100 + rate);
+        gst = amount - taxable;
+      }
+      taxable = round2(taxable);
+      gst = round2(gst);
+
+      // --- Step 3: split the GST ---
+      // Intra-state: half to Centre (CGST), half to State (SGST)
+      // Inter-state: all of it as IGST
+      const half = round2(gst / 2);
+      const cgst = half;
+      const sgst = round2(gst - half); // remainder, so CGST + SGST always equals GST exactly
+      const total = round2(taxable + gst);
+
+      // --- Step 4: show the results ---
+      $("taxable").textContent = rupees.format(taxable);
+      $("cgst").textContent = rupees.format(cgst);
+      $("sgst").textContent = rupees.format(sgst);
+      $("igst").textContent = rupees.format(gst);
+      $("total").textContent = rupees.format(total);
+
+      $("cgstLabel").textContent = `CGST @ ${rate / 2}%`;
+      $("sgstLabel").textContent = `SGST @ ${rate / 2}%`;
+      $("igstLabel").textContent = `IGST @ ${rate}%`;
+
+      // Show only the rows that apply
+      $("intraRows").classList.toggle("hidden", supply !== "intra");
+      $("interRows").classList.toggle("hidden", supply !== "inter");
+    }
+
+    // Re-calculate whenever anything changes
+    document.querySelectorAll("input").forEach((el) => {
+      el.addEventListener("input", calculate);
+    });
+
+    // Calculate once when the page first loads
+    calculate();
+  </script>
+</body>
+</html>
