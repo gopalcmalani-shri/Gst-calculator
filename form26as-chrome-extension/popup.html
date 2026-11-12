@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Form 26AS</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <div class="logo">HK</div>
+    <div>
+      <h1>Form 26AS Downloader</h1>
+      <p class="sub">Income Tax portal → TRACES</p>
+    </div>
+  </header>
+
+  <section id="setup">
+    <label class="lbl">Financial year(s)</label>
+    <div id="fyList" class="fy-grid"></div>
+
+    <label class="lbl">Save as</label>
+    <div class="formats">
+      <label><input type="checkbox" checked disabled> HTML</label>
+      <label><input type="checkbox" id="wantPdf" checked> PDF</label>
+      <label title="Password-protected zip from TRACES. Password = date of birth / incorporation (DDMMYYYY)"><input type="checkbox" id="wantText"> Text (zip)</label>
+    </div>
+
+    <label class="lbl" for="pan">PAN <span class="muted">(optional – read from 26AS if blank)</span></label>
+    <input id="pan" maxlength="10" placeholder="ABCDE1234F" autocomplete="off">
+
+    <button id="start" class="primary">Download 26AS</button>
+    <p class="hint">You log in yourself (user ID, password, captcha/OTP). The extension never sees your password and takes over once the Dashboard opens.</p>
+  </section>
+
+  <section id="progress" hidden>
+    <div class="status-row">
+      <span id="statusPill" class="pill">Running</span>
+      <span id="count" class="muted"></span>
+    </div>
+    <ul id="tasks"></ul>
+    <div id="log"></div>
+    <div class="btns">
+      <button id="cancel" class="ghost">Cancel</button>
+      <button id="again" class="primary" hidden>New download</button>
+    </div>
+  </section>
+
+  <footer>
+    <a href="#" id="openDownloads">Open downloads</a>
+    <a href="options.html" target="_blank">HisabKitab settings</a>
+  </footer>
+  <script src="popup.js"></script>
+</body>
+</html>
