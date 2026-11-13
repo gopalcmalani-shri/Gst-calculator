@@ -42,6 +42,20 @@ $("start").addEventListener("click", async () => {
   render(res.job);
 });
 
+$("resume").addEventListener("click", async () => {
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  if (tab) chrome.tabs.sendMessage(tab.id, { type: "resume" }).catch(() => {});
+  window.close();
+});
+$("copyLog").addEventListener("click", async (e) => {
+  e.preventDefault();
+  const { job } = await chrome.storage.local.get("job");
+  const v = chrome.runtime.getManifest().version;
+  const lines = [`HK 26AS v${v}  status=${job ? job.status : "none"} stage=${job ? job.stage : "-"}`]
+    .concat((job && job.log || []).map((l) => `${new Date(l.t).toLocaleTimeString()} [${l.level || "info"}] ${l.msg}`));
+  await navigator.clipboard.writeText(lines.join("\n"));
+  e.target.textContent = "Copied ✓";
+});
 $("cancel").addEventListener("click", () => send({ type: "cancelJob" }));
 $("again").addEventListener("click", async () => { await send({ type: "clearJob" }); render(null); });
 $("openDownloads").addEventListener("click", (e) => { e.preventDefault(); chrome.downloads.showDefaultFolder(); });
@@ -81,6 +95,7 @@ function render(job) {
 
   const running = job.status === "running";
   $("cancel").hidden = !running;
+  $("resume").hidden = !running;
   $("again").hidden = running;
 }
 

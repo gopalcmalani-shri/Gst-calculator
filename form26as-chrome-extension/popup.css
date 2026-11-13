@@ -59,3 +59,5 @@ button { font: inherit; font-weight: 600; border-radius: 8px; padding: 9px 14px;
 footer { display: flex; justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--line); }
 footer a { color: var(--brand); text-decoration: none; font-size: 12px; }
 .err { color: var(--err); font-size: 12px; margin-top: 8px; }
+#log .debug { color: var(--muted); font-size: 11px; }
+footer { gap: 8px; }

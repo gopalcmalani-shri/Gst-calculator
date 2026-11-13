@@ -60,36 +60,50 @@
   }
 
   const find26 = () => HK.byText(/^view\s*form\s*26\s*as\b/i);
-  const findItr = () => HK.byText(/^income tax returns?$/i);
+  // Plural only: the breadcrumb says "Income Tax Return", the menu says "…Returns"
+  const findItr = () => HK.byText(/^income tax returns$/i);
+  const findEFile = () => HK.byText(/^e-?file$/i);
+
+  // Do one action after another until `check` finds what we want.
+  async function tryUntil(label, actions, check) {
+    for (const [name, act] of actions) {
+      act();
+      const found = await HK.waitFor(check, 2500);
+      HK.debug(`${label} – ${name}: ${found ? "OK" : "nothing appeared"}`);
+      if (found) return found;
+    }
+    return null;
+  }
 
   async function openMenu() {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      // Already visible (e.g. the user opened the menu)?
+    for (let attempt = 1; attempt <= 3; attempt++) {
       let v26 = find26();
       if (v26) return choose(v26);
 
-      // 1. Open e-File (only if its list isn't already open — a second
-      //    click would close it)
+      // 1. e-File drop-down (it may open on hover, on click, or both – and a
+      //    second click can close it again, so check after every action)
       let itr = findItr();
       if (!itr) {
-        const eFile = await HK.waitFor(() => HK.byText(/^e-?file$/i), 20000);
+        const eFile = await HK.waitFor(findEFile, 20000);
+        HK.debug(`Attempt ${attempt}: e-File = ${HK.describe(eFile)}, acts on ${HK.describe(eFile && HK.target(eFile))}`);
         if (!eFile) return false;
-        HK.hover(eFile);
-        HK.click(eFile);
-        itr = await HK.waitFor(findItr, 5000);
+        itr = await tryUntil("e-File", [
+          ["hover", () => HK.hover(eFile)],
+          ["click", () => HK.click(eFile)],
+          ["click again", () => HK.click(eFile)],
+        ], findItr);
         if (!itr) continue;
       }
+      HK.debug(`Income Tax Returns = ${HK.describe(itr)}, acts on ${HK.describe(HK.target(itr))}`);
       await HK.sleep(700); // let the drop-down finish opening
 
-      // 2. "Income Tax Returns ›" opens its sub-menu on hover. Try hover,
-      //    then click, then the → key, checking after each.
-      const tries = [() => HK.hover(itr), () => HK.click(itr), () => HK.pressKey(itr, "ArrowRight", 39)];
-      for (const t of tries) {
-        t();
-        v26 = await HK.waitFor(find26, 2500);
-        if (v26) return choose(v26);
-        itr = findItr() || itr;
-      }
+      // 2. "Income Tax Returns ›" sub-menu
+      v26 = await tryUntil("Income Tax Returns", [
+        ["hover", () => HK.hover(itr)],
+        ["click", () => HK.click(findItr() || itr)],
+        ["→ key", () => HK.pressKey(findItr() || itr, "ArrowRight", 39)],
+      ], find26);
+      if (v26) return choose(v26);
       await HK.sleep(1000);
     }
     return false;
@@ -120,7 +134,11 @@
   });
   syncFlag();
 
-  chrome.runtime.onMessage.addListener((m) => { if (m && m.type === "kick") run(); });
+  chrome.runtime.onMessage.addListener((m) => {
+    if (m && m.type === "kick") run();
+    // "Continue on this tab" from the popup
+    if (m && m.type === "resume") { HK.hideBanner(); running = false; run(); }
+  });
   chrome.storage.onChanged.addListener((c) => {
     if (!c.job) return;
     syncFlag();

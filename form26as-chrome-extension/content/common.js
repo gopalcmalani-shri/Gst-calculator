@@ -47,6 +47,8 @@ var HK = (() => {
       const t = norm(el.tagName === "INPUT" ? el.value : el.innerText || el.textContent);
       if (!t || !test(t) || !visible(el)) continue;
       if (el.closest("#hk26as-banner")) continue; // never match our own banner
+      // Breadcrumbs ("Dashboard › e-file › Income Tax Return") are not menus
+      if (el.closest("[class*=breadcrumb i],[aria-label*=breadcrumb i]")) continue;
       if (!best || best.contains(el)) best = el; // prefer the innermost
     }
     return best;
@@ -170,6 +172,16 @@ var HK = (() => {
     bannerEl = null;
   }
 
+  // Short description of an element, for the log (helps fix selectors).
+  function describe(el) {
+    if (!el) return "none";
+    const cls = (el.getAttribute("class") || "").trim().split(/\s+/).slice(0, 3).join(".");
+    const role = el.getAttribute("role") ? `[role=${el.getAttribute("role")}]` : "";
+    const txt = norm(el.innerText || el.value || "").slice(0, 30);
+    return `<${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}${cls ? "." + cls : ""}${role}> "${txt}"`;
+  }
+  const debug = (msg) => send({ type: "log", msg, level: "debug" });
+
   // Ask the user to do one step by hand. Keeps the job running: the next
   // page load (or the poll loop) picks up from wherever they get to.
   function needUser(msg) {
@@ -179,6 +191,6 @@ var HK = (() => {
 
   return {
     sleep, send, getJob, activeJob, visible, norm, byText, q, waitFor,
-    hover, pressKey, click, setChecked, selectOption, banner, hideBanner, needUser,
+    hover, pressKey, click, setChecked, describe, debug, target, selectOption, banner, hideBanner, needUser,
   };
 })();

@@ -232,6 +232,9 @@
     return false;
   }
 
+  chrome.runtime.onMessage.addListener((m) => {
+    if (m && m.type === "resume") { HK.hideBanner(); run(); }
+  });
   chrome.storage.onChanged.addListener((c) => {
     if (c.job && c.job.newValue && c.job.newValue.stage === "traces" &&
         (!c.job.oldValue || c.job.oldValue.stage !== "traces")) run();
