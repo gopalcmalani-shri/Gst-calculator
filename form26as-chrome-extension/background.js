@@ -206,6 +206,17 @@ const handlers = {
     return setJob(job);
   },
 
+  // The portal's pop-up to TRACES was blocked – open it as a normal tab.
+  async openTab({ url }) {
+    const u = new URL(url);
+    if (u.protocol !== "https:" || !/(^|\.)tdscpc\.gov\.in$/i.test(u.hostname)) throw new Error("Not a TRACES address");
+    const job = await getJob();
+    if (!job || job.status !== "running") return job;
+    await chrome.tabs.create({ url: u.href, active: true });
+    addLog(job, "Opened TRACES (Chrome had blocked the pop-up)");
+    return setJob(job);
+  },
+
   // The TRACES tab is about to click a button that makes the browser
   // download a file (PDF export / Text zip). Remember what to name it.
   async expectDownload({ ay, kind }) {

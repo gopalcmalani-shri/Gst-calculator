@@ -1,4 +1,4 @@
-// Runs on services.tdscpc.gov.in (TRACES).
+// Runs on *.tdscpc.gov.in (TRACES; the 26AS pages are on traces61services.tdscpc.gov.in).
 //
 // TRACES is a classic multi-page site, so this script runs again on every
 // page load. Each time it looks at what is on screen and does the matching
@@ -17,11 +17,18 @@
     pdf: ["#pdfBtn", "input[value*='Export as PDF' i]"],
   };
 
-  const STATEMENT = /annual tax statement|part[\s-]*i\b|assessee details/i;
+  // The 26AS page shows the PAN table and notes (which mention "deductor")
+  // even before anything is viewed, so only the Part I table counts – and
+  // not while the "Loading please wait…" box is up.
+  const PART_I = /PART[\s-]*I\b[\s\-–:]*Details of Tax Deducted/i;
+
+  function loading() {
+    return !!HK.byText(/loading,?\s*please wait/i, "div,span,td,p");
+  }
 
   function statementShown() {
     const t = document.body ? document.body.innerText : "";
-    return STATEMENT.test(t) && /(part[\s-]*i\b|deductor|tan of)/i.test(t);
+    return PART_I.test(t) && !loading();
   }
 
   // When TRACES shows the statement on the same page (no reload), the
@@ -32,6 +39,14 @@
   function statementReady() {
     return statementShown() && (staleText === null || bodyText() !== staleText);
   }
+
+  // Drop-downs found by what they contain, in case TRACES renames them.
+  function selectWith(re) {
+    return [...document.querySelectorAll("select")].find(
+      (sel) => HK.visible(sel) && [...sel.options].some((o) => re.test(HK.norm(o.text))));
+  }
+  const findAySelect = () => HK.q(SEL.ay) || selectWith(/^20\d\d-\d\d$/);
+  const findViewSelect = () => HK.q(SEL.viewAs) || selectWith(/^html$/i);
 
   function findPan() {
     const t = document.body ? document.body.innerText : "";
@@ -56,6 +71,12 @@
     if (running) return;
     running = true;
     try {
+      // Reaching TRACES means the portal part is done – even if the user
+      // clicked through it by hand – so take over.
+      const j = await HK.activeJob();
+      if (j && j.stage !== "traces") {
+        await HK.send({ type: "patch", patch: { stage: "traces" }, log: "TRACES opened – taking over" });
+      }
       // Keep going while there is work for this page.
       for (let guard = 0; guard < 50; guard++) {
         const job = await HK.activeJob();
@@ -83,7 +104,7 @@
     }
 
     // ---- B. AY selection page → request the next statement
-    const aySel = HK.q(SEL.ay);
+    const aySel = findAySelect();
     if (aySel) {
       if (!job.viewUrl) await HK.send({ type: "patch", patch: { viewUrl: location.href } });
       await request(job, task, aySel);
@@ -118,7 +139,7 @@
 
     // ---- F. Unknown page: wait a bit (slow load), then ask the user.
     const appeared = await HK.waitFor(
-      () => HK.q(SEL.ay) || (HK.q(SEL.agree) && HK.q(SEL.proceed)) || HK.byText(/view tax credit/i, "a") ||
+      () => findAySelect() || (HK.q(SEL.agree) && HK.q(SEL.proceed)) || HK.byText(/view tax credit/i, "a") ||
             (job.submitted && statementReady()),
       20000
     );
@@ -127,7 +148,7 @@
       ? "wait until Form 26AS appears (or click View/Download again)"
       : "open 'View Tax Credit (Form 26AS/Annual Tax Statement)'");
     // Keep watching the page for the user's action.
-    await HK.waitFor(() => HK.q(SEL.ay) || (job.submitted && statementReady()), 10 * 60_000, 1000);
+    await HK.waitFor(() => findAySelect() || (job.submitted && statementReady()), 10 * 60_000, 1000);
     return true;
   }
 
@@ -140,14 +161,15 @@
     }
     await HK.sleep(600); // some versions reload "View As" after AY changes
 
-    const viewSel = await HK.waitFor(() => HK.q(SEL.viewAs), 5000);
+    const viewSel = await HK.waitFor(findViewSelect, 5000);
     const want = task.kind === "TEXT" ? [/^text$/i, "TEXT", "Text"] : [/^html$/i, "HTML"];
     if (!viewSel || !HK.selectOption(viewSel, want)) {
       HK.needUser(`choose View As = ${task.kind === "TEXT" ? "Text" : "HTML"}`);
       await HK.waitFor(() => viewSel && new RegExp(task.kind, "i").test(viewSel.selectedOptions[0]?.text || ""), 120000, 1000);
     }
 
-    const submit = HK.q(SEL.submit) || HK.byText(/^view\s*\/?\s*download$/i);
+    const submit = HK.q(SEL.submit) ||
+      HK.byText(/^view\s*\/?\s*download$/i, "a,button,input[type=button],input[type=submit]");
     if (!submit) throw new Error("Could not find the View / Download button");
 
     if (task.kind === "TEXT") {
@@ -178,7 +200,9 @@
     staleText = null;
 
     if (task.pdf) {
-      const btn = HK.q(SEL.pdf) || HK.byText(/export as pdf/i);
+      // Exact match on a link/button – the notes also say "click on Export as PDF".
+      const btn = HK.q(SEL.pdf) ||
+        HK.byText(/^export as pdf$/i, "a,button,input[type=button],input[type=submit]");
       if (btn) {
         await HK.send({ type: "expectDownload", ay: task.ay, kind: "PDF" });
         HK.click(btn);

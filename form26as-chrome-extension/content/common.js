@@ -46,6 +46,7 @@ var HK = (() => {
     for (const el of document.querySelectorAll(selector)) {
       const t = norm(el.tagName === "INPUT" ? el.value : el.innerText || el.textContent);
       if (!t || !test(t) || !visible(el)) continue;
+      if (el.closest("#hk26as-banner")) continue; // never match our own banner
       if (!best || best.contains(el)) best = el; // prefer the innermost
     }
     return best;
@@ -71,12 +72,52 @@ var HK = (() => {
     return null;
   }
 
-  function click(el) {
-    el.scrollIntoView({ block: "center" });
-    for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup"]) {
-      el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+  // The element that actually handles clicks/hover (a span's button, etc.)
+  function target(el) {
+    return el.closest("button,a,[role=menuitem],[mat-menu-item],li,input") || el;
+  }
+
+  function mouseOpts(el, extra = {}) {
+    const r = el.getBoundingClientRect();
+    return { bubbles: true, cancelable: true, view: window, composed: true,
+             clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, ...extra };
+  }
+
+  // Simulate the mouse moving onto an element. mouseenter/pointerenter do
+  // not bubble, so they are sent to the element and each of its parents,
+  // which is what a real mouse does. Hover-only menus need this.
+  function hover(el) {
+    const t = target(el);
+    const o = mouseOpts(t);
+    t.dispatchEvent(new PointerEvent("pointerover", o));
+    t.dispatchEvent(new MouseEvent("mouseover", o));
+    for (let n = t; n && n !== document.documentElement; n = n.parentElement) {
+      n.dispatchEvent(new PointerEvent("pointerenter", { ...o, bubbles: false }));
+      n.dispatchEvent(new MouseEvent("mouseenter", { ...o, bubbles: false }));
     }
-    el.click();
+    t.dispatchEvent(new PointerEvent("pointermove", o));
+    t.dispatchEvent(new MouseEvent("mousemove", o));
+  }
+
+  function click(el) {
+    const t = target(el);
+    t.scrollIntoView({ block: "center" });
+    const o = mouseOpts(t);
+    t.dispatchEvent(new PointerEvent("pointerdown", o));
+    t.dispatchEvent(new MouseEvent("mousedown", o));
+    t.dispatchEvent(new PointerEvent("pointerup", o));
+    t.dispatchEvent(new MouseEvent("mouseup", o));
+    t.click();
+  }
+
+  // Keyboard key on an element (Angular Material opens sub-menus on →).
+  function pressKey(el, key, keyCode) {
+    const t = target(el);
+    t.focus();
+    const e = new KeyboardEvent("keydown", { key, code: key, bubbles: true, cancelable: true });
+    Object.defineProperty(e, "keyCode", { get: () => keyCode });
+    Object.defineProperty(e, "which", { get: () => keyCode });
+    t.dispatchEvent(e);
   }
 
   function setChecked(el, value = true) {
@@ -138,6 +179,6 @@ var HK = (() => {
 
   return {
     sleep, send, getJob, activeJob, visible, norm, byText, q, waitFor,
-    click, setChecked, selectOption, banner, hideBanner, needUser,
+    hover, pressKey, click, setChecked, selectOption, banner, hideBanner, needUser,
   };
 })();
