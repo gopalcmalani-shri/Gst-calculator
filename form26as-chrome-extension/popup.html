@@ -22,7 +22,7 @@
     <div class="formats">
       <label><input type="checkbox" checked disabled> HTML</label>
       <label><input type="checkbox" id="wantPdf" checked> PDF</label>
-      <label title="Password-protected zip from TRACES. Password = date of birth / incorporation (DDMMYYYY)"><input type="checkbox" id="wantText"> Text (zip)</label>
+      <label title="Password-protected zip from TRACES. Password = date of birth / incorporation (DDMMYYYY)"><input type="checkbox" id="wantText" checked> Text (zip)</label>
     </div>
 
     <label class="lbl" for="pan">PAN <span class="muted">(optional – read from 26AS if blank)</span></label>
@@ -39,6 +39,7 @@
     </div>
     <ul id="tasks"></ul>
     <div id="log"></div>
+    <button id="fixSaveAs" class="ghost wide" hidden>Open Chrome download settings</button>
     <div class="btns">
       <button id="resume" class="ghost" title="Restart the extension on the tab you are looking at">Continue on this tab</button>
       <button id="cancel" class="ghost">Cancel</button>

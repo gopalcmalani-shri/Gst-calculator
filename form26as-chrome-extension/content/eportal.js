@@ -7,7 +7,14 @@
 
   // After login the portal may land on the Dashboard or straight on the
   // "File Income Tax Return" page, so look for the logged-in menu bar.
-  const isLoggedIn = () =>
+  // The "you are being redirected to TDS-CPC / TRACES … Confirm" box,
+  // wherever the portal shows it.
+  const tracesConfirm = () => {
+    const b = HK.byText(/^confirm$/i, "button");
+    return b && /tds-?cpc|traces/i.test(document.body.innerText) ? b : null;
+  };
+
+  const isLoggedIn = () => !!tracesConfirm() ||
     !/login/i.test(location.href) &&
     (/dashboard/i.test(location.href) ||
      (!!HK.byText(/^e-?file$/i) && /session time|log ?out/i.test(document.body.innerText)));
@@ -21,8 +28,12 @@
 
       // ---- 1. Wait for the user to log in
       if (!isLoggedIn()) {
-        HK.banner("Log in with your user ID and password, and type the captcha/OTP. I'll take over once you are logged in.");
+        HK.banner(job.pan
+          ? "Filling your PAN. Then enter your password, confirm your secure access message and type the captcha/OTP. I'll take over once you are logged in."
+          : "Log in with your user ID and password, and type the captcha/OTP. I'll take over once you are logged in.");
+        let panFilled = false;
         while (!isLoggedIn()) {
+          if (job.pan && !panFilled) panFilled = await fillPan(job.pan);
           await HK.sleep(1000);
           job = await HK.activeJob();
           if (!job || job.stage !== "login") { HK.hideBanner(); return; }
@@ -36,7 +47,7 @@
       await HK.sleep(2000);
 
       // ---- 2. Menu navigation
-      const ok = await openMenu();
+      const ok = tracesConfirm() ? true : await openMenu();
       if (!ok) {
         HK.needUser("click e-File › Income Tax Returns › View Form 26AS, then Confirm");
       }
@@ -57,6 +68,23 @@
     } finally {
       running = false;
     }
+  }
+
+  // Login page step 1: put the PAN in the user ID box and press Continue.
+  // (Password, the secure-access-message tick and the captcha stay with the
+  // user – the tick is how you check this really is the Income Tax site.)
+  async function fillPan(pan) {
+    const box = HK.q(["#panAdhaarUserId", "input[name='panAdhaarUserId']",
+                      "input[placeholder*='PAN' i]", "input[placeholder*='User ID' i]"]);
+    if (!box || HK.q(["input[type=password]"])) return false;
+    if (HK.norm(box.value).toUpperCase() !== pan) HK.fillInput(box, pan);
+    await HK.sleep(500);
+    const cont = HK.byText(/^continue$/i, "button");
+    if (cont && !cont.disabled) {
+      HK.click(cont);
+      HK.debug("Filled PAN and pressed Continue");
+    }
+    return true;
   }
 
   const find26 = () => HK.byText(/^view\s*form\s*26\s*as\b/i);

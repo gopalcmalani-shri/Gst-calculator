@@ -13,6 +13,14 @@
   };
   const relay = (url) => window.postMessage({ __hk26as: "open", url: new URL(url, location.href).href }, "*");
 
+  // The portal asks "Leave site? Changes you made may not be saved" when
+  // View Form 26AS takes the tab away. During a download nothing is being
+  // edited, so stop that question (our listener runs first and stops the
+  // portal's own one).
+  window.addEventListener("beforeunload", (e) => {
+    if (active()) e.stopImmediatePropagation();
+  }, true);
+
   const origOpen = window.open;
   window.open = function (url, ...rest) {
     const w = origOpen.call(this, url, ...rest);

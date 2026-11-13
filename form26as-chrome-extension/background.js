@@ -86,6 +86,24 @@ async function uploadToHisabKitab(job, ay, filename, html) {
   return { ok: true };
 }
 
+// If Chrome's "Ask where to save each file" setting is on, every file waits
+// in a Save As box (an extension can't turn that off or click it). Spot it
+// and tell the user how to switch it off.
+function checkSaveAsPrompt(id) {
+  setTimeout(async () => {
+    const [d] = await chrome.downloads.search({ id });
+    if (d && d.state === "in_progress" && !d.filename) {
+      await serial(async () => {
+        const job = await getJob();
+        if (!job || job.saveAsWarned) return;
+        job.saveAsWarned = true;
+        addLog(job, "Chrome is asking where to save each file. Turn off \"Ask where to save each file\" (button below) so files save by themselves.", "warn");
+        await setJob(job);
+      });
+    }
+  }, 4000);
+}
+
 // ---------------------------------------------------------------- messages
 
 const handlers = {
@@ -188,13 +206,14 @@ const handlers = {
     const filename = `${folderFor(job)}/${baseName(job, ay)}.html`;
     const url = textToDataUrl(html, "text/html");
     ownNames.set(url, filename);
-    await chrome.downloads.download({
+    const dlId = await chrome.downloads.download({
       url,
       filename,
       conflictAction: "overwrite",
       saveAs: false,
     });
     job.files.push({ ay, kind: "html", filename });
+    checkSaveAsPrompt(dlId);
     addLog(job, `Saved ${filename.split("/").pop()}`);
 
     try {

@@ -122,6 +122,16 @@ var HK = (() => {
     t.dispatchEvent(e);
   }
 
+  // Put text into an input so that Angular/React notice it.
+  function fillInput(el, value) {
+    el.focus();
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+    setter.call(el, value);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    el.dispatchEvent(new Event("blur", { bubbles: true }));
+  }
+
   function setChecked(el, value = true) {
     if (el.checked !== value) click(el);
   }
@@ -191,6 +201,6 @@ var HK = (() => {
 
   return {
     sleep, send, getJob, activeJob, visible, norm, byText, q, waitFor,
-    hover, pressKey, click, setChecked, describe, debug, target, selectOption, banner, hideBanner, needUser,
+    hover, pressKey, click, fillInput, setChecked, describe, debug, target, selectOption, banner, hideBanner, needUser,
   };
 })();

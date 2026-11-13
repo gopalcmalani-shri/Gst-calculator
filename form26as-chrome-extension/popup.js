@@ -56,6 +56,7 @@ $("copyLog").addEventListener("click", async (e) => {
   await navigator.clipboard.writeText(lines.join("\n"));
   e.target.textContent = "Copied ✓";
 });
+$("fixSaveAs").addEventListener("click", () => chrome.tabs.create({ url: "chrome://settings/downloads" }));
 $("cancel").addEventListener("click", () => send({ type: "cancelJob" }));
 $("again").addEventListener("click", async () => { await send({ type: "clearJob" }); render(null); });
 $("openDownloads").addEventListener("click", (e) => { e.preventDefault(); chrome.downloads.showDefaultFolder(); });
@@ -96,6 +97,7 @@ function render(job) {
   const running = job.status === "running";
   $("cancel").hidden = !running;
   $("resume").hidden = !running;
+  $("fixSaveAs").hidden = !job.saveAsWarned;
   $("again").hidden = running;
 }
 
@@ -106,7 +108,7 @@ chrome.storage.onChanged.addListener((c) => { if (c.job) render(c.job.newValue |
   const { job, prefs } = await chrome.storage.local.get(["job", "prefs"]);
   if (prefs) {
     $("wantPdf").checked = prefs.wantPdf !== false;
-    $("wantText").checked = !!prefs.wantText;
+    $("wantText").checked = prefs.wantText !== false;
     $("pan").value = prefs.pan || "";
   }
   render(job || null);
