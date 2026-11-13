@@ -7,6 +7,7 @@
 
 (() => {
   let running = false;
+  let termsTried = false; // the "I agree + Proceed" step is tried once per page
 
   const SEL = {
     agree: ["#Details", "input[type=checkbox][name*='etail' i]"],
@@ -111,24 +112,45 @@
       return true; // HTML: statement now on screen; TEXT: task finished → next one
     }
 
-    // ---- C. Landing page: "I agree" + Proceed
-    const agree = HK.q(SEL.agree);
-    const proceed = HK.q(SEL.proceed);
-    if (agree && proceed) {
-      HK.banner("Accepting TRACES terms …");
-      HK.setChecked(agree, true);
-      await HK.sleep(400);
-      HK.click(proceed);
-      return false; // page navigates
-    }
-
-    // ---- D. Link to the 26AS page
-    const link = HK.byText(/view tax credit/i, "a");
+    // ---- C. Welcome page: "Click View Tax Credit (Form 26AS/Annual Tax Statement)"
+    //         (checked before the terms step: the real welcome page has no
+    //         terms step, and must never be mistaken for one)
+    const link = HK.byText(/^view tax credit\b/i, "a");
     if (link) {
       HK.banner("Opening View Tax Credit (Form 26AS) …");
       await HK.send({ type: "log", msg: "Opening View Tax Credit (Form 26AS)" });
+      HK.debug(`View Tax Credit link = ${HK.describe(link)} href=${(link.getAttribute("href") || "").slice(0, 80)}`);
+      const before = location.href;
       HK.click(link);
-      return false;
+      // Normally the page changes and this script starts again on the next one.
+      if (await HK.waitFor(() => location.href !== before || findAySelect(), 10000)) return true;
+      const href = link.href;
+      if (href && /^https?:/i.test(href) && !/#$/.test(href)) {
+        HK.debug("Link click did not open the page – following its address");
+        location.href = href;
+        return false;
+      }
+      HK.debug("Link click did not open the page");
+      HK.needUser("click 'View Tax Credit (Form 26AS/Annual Tax Statement)'");
+      await HK.waitFor(() => location.href !== before || findAySelect(), 10 * 60_000, 1000);
+      return true;
+    }
+
+    // ---- D. Older TRACES landing page: "I agree" + Proceed
+    const agree = HK.q(SEL.agree);
+    const proceed = HK.q(SEL.proceed);
+    if (agree && proceed && !termsTried) {
+      termsTried = true;
+      HK.banner("Accepting TRACES terms …");
+      HK.debug(`Terms: checkbox ${HK.describe(agree)}, button ${HK.describe(proceed)}`);
+      const before = location.href;
+      HK.setChecked(agree, true);
+      await HK.sleep(400);
+      HK.click(proceed);
+      // If nothing happens, don't wait forever – look at the page again.
+      await HK.waitFor(() => location.href !== before || findAySelect() ||
+                             HK.byText(/^view tax credit\b/i, "a"), 8000);
+      return true;
     }
 
     // ---- E. After a TEXT/HTML task finished on a page without the form → go back
@@ -139,7 +161,7 @@
 
     // ---- F. Unknown page: wait a bit (slow load), then ask the user.
     const appeared = await HK.waitFor(
-      () => findAySelect() || (HK.q(SEL.agree) && HK.q(SEL.proceed)) || HK.byText(/view tax credit/i, "a") ||
+      () => findAySelect() || (!termsTried && HK.q(SEL.agree) && HK.q(SEL.proceed)) || HK.byText(/^view tax credit\b/i, "a") ||
             (job.submitted && statementReady()),
       20000
     );
